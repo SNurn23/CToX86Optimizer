@@ -1,11 +1,14 @@
 grammar CGrammar;
 
-// Palabras clave
+// 🔹 PALABRAS CLAVE Y TIPOS BÁSICOS
+type: baseType (LBRACKET RBRACKET)*;
+baseType: VOID | INT | CHAR | FLOAT | DOUBLE;
+
+VOID: 'void';
 INT: 'int';
 CHAR: 'char';
 FLOAT: 'float';
 DOUBLE: 'double';
-VOID: 'void';
 RETURN: 'return';
 IF: 'if';
 ELSE: 'else';
@@ -21,14 +24,14 @@ PRINTF: 'printf';
 SCANF: 'scanf';
 SIZEOF: 'sizeof';
 
-// Identificadores y literales
+// 🔹 IDENTIFICADORES Y LITERALES
 IDENTIFIER: [a-zA-Z_][a-zA-Z_0-9]*;
-NUMBER: [0-9]+;
-CHAR_LITERAL: '\'' . '\'';
-FLOAT_LITERAL: [0-9]+ '.' [0-9]+;
-STRING_LITERAL: '"' (~["])* '"';
+NUMBER: '-'? [0-9]+;
+CHAR_LITERAL: '\'' (Escape | .) '\'';
+FLOAT_LITERAL: '-'? ([0-9]+ '.' [0-9]* ([eE] [-+]? [0-9]+)? | '.' [0-9]+ ([eE] [-+]? [0-9]+)?);
+STRING_LITERAL: '"' (Escape | ~["\\\r\n])* '"';
 
-// Operadores
+// 🔹 OPERADORES
 PLUS: '+';
 MINUS: '-';
 MUL: '*';
@@ -37,13 +40,20 @@ MOD: '%';
 INCREMENT: '++';
 DECREMENT: '--';
 ASSIGN: '=';
+PLUS_ASSIGN: '+=';
+MINUS_ASSIGN: '-=';
+MUL_ASSIGN: '*=';
+DIV_ASSIGN: '/=';
+MOD_ASSIGN: '%=';
 AND: '&';
 OR: '|';
 LOGICAL_AND: '&&';
 LOGICAL_OR: '||';
 LOGICAL_NOT: '!';
 LT: '<';
+LE: '<=';
 GT: '>';
+GE: '>=';
 EQ: '==';
 NEQ: '!=';
 SEMI: ';';
@@ -56,18 +66,28 @@ RBRACE: '}';
 LBRACKET: '[';
 RBRACKET: ']';
 
-// Ignorar espacios en blanco
+// 🔹 FRAGMENTOS
+fragment Escape: '\\' [tnr"\\];
+
+// 🔹 IGNORAR ESPACIOS Y COMENTARIOS
 WS: [ \t\r\n]+ -> skip;
+COMMENT: '//' ~[\r\n]* -> skip;
+BLOCK_COMMENT: '/*' .*? '*/' -> skip;
+DOC_COMMENT: '/**' .*? '*/' -> skip;
 
-// Reglas sintácticas
-program: (functionDecl | varDecl)* EOF;
+// 🔹 REGLAS PRINCIPALES
+program: (functionDecl | varDecl)+ EOF;
 
-functionDecl: (INT | CHAR | FLOAT | DOUBLE | VOID) IDENTIFIER LPAREN (paramList)? RPAREN block;
-paramList: param (COMMA param)*;
-param: (INT | CHAR | FLOAT | DOUBLE) IDENTIFIER;
+// 🔹 FUNCIONES Y PARÁMETROS
+functionDecl: type IDENTIFIER LPAREN (paramList | VOID)? RPAREN (block | SEMI);
+paramList: VOID | (param (COMMA param)*);
+param: type IDENTIFIER;
 
-varDecl: (INT | CHAR | FLOAT | DOUBLE) IDENTIFIER (LBRACKET NUMBER RBRACKET)? SEMI;
+// 🔹 DECLARACIÓN DE VARIABLES (ARREGLADO PARA SOPORTAR ASIGNACIONES)
+varDecl: type IDENTIFIER (LBRACKET NUMBER? RBRACKET)* (ASSIGN (expression | arrayInitializer))? SEMI;
+arrayInitializer: LBRACE (expression (COMMA expression)*)? RBRACE;
 
+// 🔹 BLOQUES Y SENTENCIAS
 block: LBRACE statement* RBRACE;
 
 statement
@@ -86,37 +106,85 @@ statement
     | block
     ;
 
-exprStatement: expression? SEMI;
-
+// 🔹 CONTROL DE FLUJO
+exprStatement: expression SEMI;
 ifStatement: IF LPAREN expression RPAREN statement (ELSE statement)?;
 whileStatement: WHILE LPAREN expression RPAREN statement;
 doWhileStatement: DO statement WHILE LPAREN expression RPAREN SEMI;
-forStatement: FOR LPAREN exprStatement exprStatement expression? RPAREN statement;
-
+forStatement: FOR LPAREN (varDecl | exprStatement) expression? SEMI expression? RPAREN statement;
 returnStatement: RETURN expression? SEMI;
 breakStatement: BREAK SEMI;
 continueStatement: CONTINUE SEMI;
 
+// 🔹 SWITCH Y CASE
 switchStatement: SWITCH LPAREN expression RPAREN LBRACE caseStatement* defaultStatement? RBRACE;
-caseStatement: CASE NUMBER COLON statement*;
+caseStatement: CASE expression COLON statement*;
 defaultStatement: DEFAULT COLON statement*;
 
+// 🔹 PRINTF Y SCANF (AHORA SCANF NO REQUIERE `&`)
 printfStatement: PRINTF LPAREN STRING_LITERAL (COMMA expression)* RPAREN SEMI;
-scanfStatement: SCANF LPAREN STRING_LITERAL (COMMA '&'? IDENTIFIER)* RPAREN SEMI;
+scanfStatement: SCANF LPAREN STRING_LITERAL (COMMA expression)* RPAREN SEMI;
 
+// 🔹 EXPRESIONES Y OPERADORES
+
+
+
+// 🔹 EXPRESIONES CON PRECEDENCIA EXPLÍCITA
 expression
-    : IDENTIFIER ASSIGN expression
-    | expression (PLUS | MINUS | MUL | DIV | MOD) expression
-    | expression (LT | GT | EQ | NEQ) expression
-    | expression (LOGICAL_AND | LOGICAL_OR) expression
-    | LOGICAL_NOT expression
-    | IDENTIFIER
-    | NUMBER
+    : logicalOrExpression
+    ;
+
+logicalOrExpression
+    : logicalAndExpression (LOGICAL_OR logicalAndExpression)*
+    ;
+
+logicalAndExpression
+    : equalityExpression (LOGICAL_AND equalityExpression)*
+    ;
+
+equalityExpression
+    : relationalExpression ((EQ | NEQ) relationalExpression)*
+    ;
+
+relationalExpression
+    : additiveExpression ((LT | GT | LE | GE) additiveExpression)*
+    ;
+
+additiveExpression
+    : multiplicativeExpression ((PLUS | MINUS) multiplicativeExpression)*
+    ;
+
+multiplicativeExpression
+    : prefixExpression ((MUL | DIV | MOD) prefixExpression)*
+    ;
+
+prefixExpression
+    : (INCREMENT | DECREMENT | LOGICAL_NOT | AND | MUL) prefixExpression
+    | postfixExpression
+    ;
+
+postfixExpression
+    : primaryExpression
+      (
+        LBRACKET expression RBRACKET   // Array access
+        | LPAREN expressionList? RPAREN // Function call
+        | INCREMENT | DECREMENT        // Postfix operators
+      )*
+    ;
+
+    expressionList: (expression (COMMA expression)*)?;
+
+primaryExpression
+    : IDENTIFIER                       # identifierExpression
+    | literal                          # literalExpression
+    | LPAREN expression RPAREN         # parenExpression
+    | SIZEOF LPAREN (type | expression) RPAREN  # sizeofExpression
+    | LPAREN type RPAREN expression    # castExpression
+    ;
+// 🔹 LITERALES
+literal
+    : NUMBER
     | CHAR_LITERAL
     | FLOAT_LITERAL
     | STRING_LITERAL
-    | IDENTIFIER LBRACKET expression RBRACKET
-    | LPAREN expression RPAREN
-    | IDENTIFIER INCREMENT
-    | IDENTIFIER DECREMENT
     ;

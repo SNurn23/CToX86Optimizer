@@ -19,38 +19,41 @@
         <dependency>
             <groupId>org.antlr</groupId>
             <artifactId>antlr4-runtime</artifactId>
-            <version>4.12.0</version>
+            <version>4.13.0</version>
         </dependency>
 
         <!-- Librería ANTLR completa (para generación de código) -->
         <dependency>
             <groupId>org.antlr</groupId>
             <artifactId>antlr4</artifactId>
-            <version>4.12.0</version>
+            <version>4.13.0</version>
         </dependency>
     </dependencies>
 
     <build>
         <plugins>
-            <!-- Plugin de ANTLR para generar lexer y parser -->
+            <!-- Plugin oficial de ANTLR para generar lexer y parser -->
             <plugin>
                 <groupId>org.antlr</groupId>
                 <artifactId>antlr4-maven-plugin</artifactId>
-                <version>4.12.0</version>
+                <version>4.13.0</version>
                 <executions>
                     <execution>
                         <id>antlr</id>
                         <goals>
-                            <goal>antlr4</goal>
+                            <goal>antlr4</goal> <!-- Usa "antlr4" como goal -->
                         </goals>
                         <configuration>
-                            <outputDirectory>${project.build.directory}/generated-sources/antlr4</outputDirectory>
+                            <sourceDirectory>src/main/antlr4</sourceDirectory>
+                            <outputDirectory>src/main/java/com/compiler/antlr4</outputDirectory>
+                            <visitor>true</visitor> <!-- Habilita la generación del patrón Visitor -->
+                            <listener>false</listener> <!-- Desactiva el patrón Listener -->
                         </configuration>
                     </execution>
                 </executions>
             </plugin>
 
-            <!-- Plugin para compilar código Java y reconocer fuentes generadas -->
+            <!-- Plugin para compilar código Java y reconocer las fuentes generadas -->
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-compiler-plugin</artifactId>
@@ -59,7 +62,7 @@
                     <source>23</source>
                     <target>23</target>
                     <encoding>UTF-8</encoding>
-                    <generatedSourcesDirectory>${project.build.directory}/generated-sources/antlr4</generatedSourcesDirectory>
+                    <generatedSourcesDirectory>src/main/java/com/compiler/antlr4</generatedSourcesDirectory>
                 </configuration>
             </plugin>
         </plugins>
